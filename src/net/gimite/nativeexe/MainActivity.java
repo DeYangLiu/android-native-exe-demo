@@ -7,14 +7,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
 
-import net.gimite.nativeexe.R;
 import android.app.Activity;
-import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.text.method.ScrollingMovementMethod;
 import android.view.View;
@@ -25,15 +23,16 @@ import android.util.Log;
 
 public class MainActivity extends Activity {
 	public static final String TAG = "NativeExeActivity";
-	private TextView outputView;
-	private Button localRunButton;
-	private EditText localInputEdit;
-	private Handler handler = new Handler();
-	private EditText remoteUriEdit;
-	private Button remoteRunButton;
+	private TextView mOuptuView;
+	private Handler mHandler = new Handler();
+	private EditText mInputEdit;
+	private Button mRunButton;
 
 	private boolean mInputReady = false;
-	private boolean bQuitFlag = false;
+	private boolean mQuitFlag = false;
+	private boolean mIsProcRunning = false;
+	private String mLocalPath = null;
+	private String lastInputStr = "";
 
 	/**
 	 * Called when the activity is first created.
@@ -43,63 +42,104 @@ public class MainActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.main);
 
-		outputView = (TextView) findViewById(R.id.outputView);
-		localInputEdit = (EditText) findViewById(R.id.localPathEdit);
-		localRunButton = (Button) findViewById(R.id.localRunButton);
-		localRunButton.setOnClickListener(onLocalRunButtonClick);
-		remoteUriEdit = (EditText) findViewById(R.id.urlEdit);
-		remoteRunButton = (Button) findViewById(R.id.remoteRunButton);
-		remoteRunButton.setOnClickListener(onRemoteRunButtonClick);
+		mOuptuView = (TextView) findViewById(R.id.outputView);
 
-		outputView.setMovementMethod(new ScrollingMovementMethod()); //auto scroll
-		Log.d(TAG, "created");
+		mInputEdit = (EditText) findViewById(R.id.inputEdit);
+		mRunButton = (Button) findViewById(R.id.runButton);
+		mRunButton.setOnClickListener(onRunButtonClick);
+
+		mOuptuView.setMovementMethod(new ScrollingMovementMethod()); //auto scroll
+
+		mLocalPath = this.getApplication().getFilesDir().getPath();
+		Log.d(TAG, "created on " + mLocalPath);
 	}
 
 	@Override
 	protected void onPause() {
 		super.onPause();
 		mInputReady  = false;
-		bQuitFlag = true;
+		Log.d(TAG, "on pause");
+
 	}
 
-	private OnClickListener onLocalRunButtonClick = new OnClickListener() {
+	@Override
+	protected void onStop() {
+		super.onStop();
+		mQuitFlag = true;
+		Log.d(TAG, "on stop set quit flag");
+	}
+
+	@Override
+	protected void onResume() {
+		super.onResume();
+		Log.d(TAG, "on resume isProc running " + mIsProcRunning);
+		if(lastInputStr.length() > 0)
+			mInputEdit.setText(lastInputStr);
+
+	}
+
+	private OnClickListener onRunButtonClick = new OnClickListener() {
 		public void onClick(View v) {
-			mInputReady = true;
-		}
-	};
+			if (mIsProcRunning) {
+				mInputReady = true;
+			}
+			else{
 
-	private OnClickListener onRemoteRunButtonClick = new OnClickListener() {
-		public void onClick(View v) {
+				final String url = mInputEdit.getText().toString();
+				if(url.trim().length() < 1) {return;}
+				lastInputStr = url;
 
-			final String url = remoteUriEdit.getText().toString();
-			final String localPath = "/data/data/net.gimite.nativeexe/a.out";
-			
-			Thread thread = new Thread(new Runnable() {
-				public void run() {
+				mInputEdit.setText(""); //shift uri to ouptut
+				outputToUI(url+"\n", false);
 
-					List<String> args = new ArrayList<String>();
-					for(String item : url.split(" ")) {
-						Log.d(TAG, "arg: " + item);
-						args.add(item);
+				Thread thread = new Thread(new Runnable() {
+					public void run() {
+						if (url.charAt(0) != '/') {
+							String ret = getResultFromExcuteCommand(url);
+							Log.d(TAG, "chmod ret " + ret);
+							outputToUI(ret, false);
+							return;
+						}
+
+						String localFileName = mLocalPath + "/a.out";
+
+						List<String> args = new ArrayList<String>();
+						for (String item : url.split(" ")) {
+							Log.d(TAG, "arg: " + item);
+							args.add(item);
+						}
+
+						Boolean needLoad = true;
+						try {
+
+							needLoad = !compareByteContent(args.get(0), localFileName);
+
+						} catch (IOException e) {
+							needLoad = true;
+						}
+
+
+						if (needLoad) {
+							outputToUI("Downloading...", true);
+							downloadFile(args.get(0), localFileName);
+							outputToUI("preparing ...", true);
+
+							String ret = getResultFromExcuteCommand("/system/bin/chmod 744 " + localFileName);
+							Log.d(TAG, "chmod ret " + ret);
+						}
+
+
+						args.set(0, localFileName);
+						try {
+							runLocalExeWithArgs(args);
+						} catch (IOException e) {
+							outputToUI("run err " + e, true);
+							mIsProcRunning = false;
+						}
 					}
-					
-					outputToUI("Downloading...", false);
-					downloadFile(args.get(0), localPath);
-					
-					outputToUI("preparing ...", true);
-					String ret = getResultFromExcuteCommand("/system/bin/chmod 744 " + localPath);
-					Log.d(TAG, "chmod ret " + ret);
-					
-					args.set(0, localPath);
-					try {
-						runLocalExeWithArgs(args);
-					}
-					catch (IOException e) {
-						outputToUI("run err " + e, true);
-					}
-				}
-			});
-			thread.start();
+				});
+				thread.start();
+			}
 		}
 	};
 
@@ -125,6 +165,9 @@ public class MainActivity extends Activity {
 	}
 
 	private void runLocalExeWithArgs(List<String> args) throws IOException {
+		for(String a : args) {
+			Log.d(TAG, "exe args " + a);
+		}
 
 		ProcessBuilder builder = new ProcessBuilder(args);
 		builder.redirectErrorStream(true);
@@ -134,26 +177,29 @@ public class MainActivity extends Activity {
 		OutputStream in = process.getOutputStream();
 
 		byte[] buffer = new byte[4096];
-		bQuitFlag = false;
-		while (isAlive(process) && !bQuitFlag) {
+		mIsProcRunning = true;
+		mQuitFlag = false;
+		String lastInputStr = "";
+		while (isAlive(process) && !mQuitFlag) {
 			int no = out.available();
 			if (no > 0) {
 				int n = out.read(buffer, 0, Math.min(no, buffer.length));
 				String str =  new String(buffer, 0, n);
 				Log.d(TAG, "OUT: " + str);
-				outputToUI(str+"\n", true);
+				outputToUI(lastInputStr + str+"\n", true);
 			}
 
 			if(mInputReady) {
 				mInputReady = false;
 
-				String line = localInputEdit.getText().toString();
-				int ni = line.length();
+				String intputStr = mInputEdit.getText().toString();
+				int ni = intputStr.length();
 				if (ni > 0) {
-					Log.d(TAG, "IN " + ni + ": "+line);
-					line += "\n"; //flush stdin
-					in.write(line.getBytes());
+					Log.d(TAG, "IN " + ni + ": "+intputStr);
+					intputStr += "\n"; //flush stdin
+					in.write(intputStr.getBytes());
 					in.flush();
+					lastInputStr = intputStr;
 				}
 			}
 
@@ -170,8 +216,10 @@ public class MainActivity extends Activity {
 		}
 		catch (IllegalThreadStateException e) {
 			Log.d(TAG, "destroy process " +e);
-			outputToUI("destroy process " +e, true);
+			//outputToUI("destroy process " +e, true);
 		}
+		mIsProcRunning = false;
+		outputToUI("process destroyed", true);
 	}
 
 	public static boolean isAlive(Process p) {
@@ -187,6 +235,8 @@ public class MainActivity extends Activity {
 	private void downloadFile(String urlStr, String localPath) {
 		try {
 			Log.d(TAG, "download " + urlStr);
+			Log.d(TAG, "ext storage " + Environment.getExternalStorageDirectory().getPath());
+
 			if(urlStr.startsWith("/sdcard/")) {
 				copyFileUsingStream(urlStr, localPath);
 			}
@@ -225,14 +275,20 @@ public class MainActivity extends Activity {
 			public void run() {
 				StringBuilder sb  = new StringBuilder();
 				if(isAppend){
-					sb.append(outputView.getText());
+					String origStr = mOuptuView.getText().toString();
+					String tmp = origStr.trim();
+
+					if(tmp.charAt(tmp.length()-1) == '>') //is prompt
+						sb.append(tmp + " ");
+					else
+						sb.append(origStr);
 				}
 				sb.append(str);
 
-				outputView.setText(sb.toString());
+				mOuptuView.setText(sb.toString());
 			}
 		};
-		handler.post(proc);
+		mHandler.post(proc);
 	}
 
 	public static void copyFileUsingStream(String source, String dest) throws IOException {
@@ -258,6 +314,34 @@ public class MainActivity extends Activity {
 			Log.d(TAG, "copyFileUsingStream " +e);
 		}
 		
+	}
+
+	public static boolean compareByteContent(String file1, String file2) throws IOException
+	{
+		File f1 = new File(file1);
+		File f2 = new File(file2);
+		FileInputStream fis1 = new FileInputStream (f1);
+		FileInputStream fis2 = new FileInputStream (f2);
+
+		if (f1.length() != f2.length()) {
+			return false;
+		}
+
+		int n = 0;
+		byte[] b1;
+		byte[] b2;
+		while ((n = fis1.available()) > 0) {
+			if (n > 4096) n = 4096;
+			b1 = new byte[n];
+			b2 = new byte[n];
+			fis1.read(b1);
+			fis2.read(b2);
+			if (!Arrays.equals(b1, b2)) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 }

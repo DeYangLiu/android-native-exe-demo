@@ -7,20 +7,25 @@
     >
 
 	<LinearLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-		<EditText android:id="@+id/urlEdit" android:layout_height="wrap_content" android:layout_width="wrap_content" android:layout_weight="1" android:text="/sdcard/a.out"/>
-		<Button android:id="@+id/remoteRunButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="load"></Button>
-	</LinearLayout>
-	<LinearLayout android:layout_width="fill_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-		<EditText android:id="@+id/localPathEdit" android:layout_height="wrap_content" android:layout_width="wrap_content" android:layout_weight="1" android:text=""></EditText>
-		<Button android:id="@+id/localRunButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="enter"></Button>
+		<EditText android:id="@+id/inputEdit"
+			android:layout_height="wrap_content"
+			android:layout_width="wrap_content"
+			android:layout_weight="1"
+			android:text="/sdcard/scheme -b /sdcard/petite.boot -b /sdcard/scheme.boot"/>
+		<Button android:id="@+id/runButton"
+			android:layout_width="wrap_content"
+			android:layout_height="fill_parent"
+			android:text="run"></Button>
 	</LinearLayout>
 
 
-<TextView android:id="@+id/outputView" android:layout_width="wrap_content" android:layout_height="wrap_content"
-	android:autoText="true"
-	tools:autoText="false"
-	android:clickable="true"
-	android:scrollbars = "vertical"
-	></TextView>
+	<TextView
+		android:id="@+id/outputView"
+		android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+
+		android:autoText="true"
+		tools:autoText="false"
+		></TextView>
 
 </LinearLayout>
