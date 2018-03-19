@@ -6,3 +6,4 @@ local.properties
 gradlew*
 gradle*
 *.iml
+build

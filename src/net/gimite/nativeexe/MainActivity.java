@@ -11,10 +11,12 @@ import java.net.URL;
 import java.util.*;
 
 import android.app.Activity;
+import android.content.ClipboardManager;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.text.method.ScrollingMovementMethod;
+import android.view.ContextMenu;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.*;
@@ -49,9 +51,23 @@ public class MainActivity extends Activity {
 		mRunButton.setOnClickListener(onRunButtonClick);
 
 		mOuptuView.setMovementMethod(new ScrollingMovementMethod()); //auto scroll
+		registerForContextMenu(mOuptuView);
 
 		mLocalPath = this.getApplication().getFilesDir().getPath();
 		Log.d(TAG, "created on " + mLocalPath);
+	}
+
+	@Override
+	public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+		//user has long pressed your TextView
+		menu.add(0, v.getId(), 0, "Copy");
+
+		//cast the received View to TextView so that you can get its text
+		TextView yourTextView = (TextView) v;
+
+		//place your TextView's text in clipboard
+		ClipboardManager clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+		clipboard.setText(yourTextView.getText());
 	}
 
 	@Override
