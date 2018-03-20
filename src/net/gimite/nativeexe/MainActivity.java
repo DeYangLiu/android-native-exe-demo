@@ -187,6 +187,11 @@ public class MainActivity extends Activity {
 
 		ProcessBuilder builder = new ProcessBuilder(args);
 		builder.redirectErrorStream(true);
+		builder.directory(new File(mLocalPath));
+		Map<String, String> env = builder.environment();
+		Log.d(TAG, "HOME="+env.get("HOME")+ " to " + mLocalPath);
+		env.put("HOME", mLocalPath);
+
 		Process process = builder.start();
 
 		InputStream out = process.getInputStream();
