@@ -81,16 +81,25 @@ public class MainActivity extends Activity {
 	@Override
 	protected void onStop() {
 		super.onStop();
+	}
+
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
 		mQuitFlag = true;
-		Log.d(TAG, "on stop set quit flag");
+		Log.d(TAG, "on destroy set quit flag");
 	}
 
 	@Override
 	protected void onResume() {
 		super.onResume();
 		Log.d(TAG, "on resume isProc running " + mIsProcRunning);
-		if(lastInputStr.length() > 0)
-			mInputEdit.setText(lastInputStr);
+		if (mIsProcRunning) {
+			if (lastInputStr.length() > 0) {
+				mInputEdit.setText(lastInputStr);
+			}
+		}
+
 
 	}
 
@@ -101,7 +110,7 @@ public class MainActivity extends Activity {
 			}
 			else{
 
-				final String url = mInputEdit.getText().toString();
+				String url = mInputEdit.getText().toString();
 				if(url.trim().length() < 1) {return;}
 				lastInputStr = url;
 
@@ -110,8 +119,8 @@ public class MainActivity extends Activity {
 
 				Thread thread = new Thread(new Runnable() {
 					public void run() {
-						if (url.charAt(0) != '/') {
-							String ret = getResultFromExcuteCommand(url);
+						if (lastInputStr.charAt(0) != '/') {
+							String ret = getResultFromExcuteCommand(lastInputStr);
 							Log.d(TAG, "chmod ret " + ret);
 							outputToUI(ret, false);
 							return;
@@ -120,7 +129,7 @@ public class MainActivity extends Activity {
 						String localFileName = mLocalPath + "/a.out";
 
 						List<String> args = new ArrayList<String>();
-						for (String item : url.split(" ")) {
+						for (String item : lastInputStr.split(" ")) {
 							Log.d(TAG, "arg: " + item);
 							args.add(item);
 						}
@@ -161,7 +170,9 @@ public class MainActivity extends Activity {
 
 	private String getResultFromExcuteCommand(String command) {
 		try {
-			Process process = Runtime.getRuntime().exec(command);
+			String[] envp = null;
+			Process process = Runtime.getRuntime().exec(command, envp, new File(mLocalPath));
+
 			BufferedReader reader = new BufferedReader(
 					new InputStreamReader(process.getInputStream()));
 			int read;
@@ -200,27 +211,38 @@ public class MainActivity extends Activity {
 		byte[] buffer = new byte[4096];
 		mIsProcRunning = true;
 		mQuitFlag = false;
-		String lastInputStr = "";
+		lastInputStr = "";
+		String inputStr = mInputEdit.getText().toString();
 		while (isAlive(process) && !mQuitFlag) {
-			int no = out.available();
-			if (no > 0) {
-				int n = out.read(buffer, 0, Math.min(no, buffer.length));
-				String str =  new String(buffer, 0, n);
-				Log.d(TAG, "OUT: " + str);
-				outputToUI(lastInputStr + str+"\n", true);
+			StringBuilder sb  = new StringBuilder();
+			int no = 0;
+			do {
+				no = out.available();
+				if (no > 0) {
+					int n = out.read(buffer, 0, Math.min(no, buffer.length));
+					sb.append(new String(buffer, 0, n));
+				}
+			}while(no > 0);
+			if (sb.length() > 0) {
+				Log.d(TAG, "OUT: '" + sb.toString() + "'ENDOUT");
+				outputToUI(sb.toString() + "\n", true);
 			}
 
 			if(mInputReady) {
 				mInputReady = false;
 
-				String intputStr = mInputEdit.getText().toString();
-				int ni = intputStr.length();
+				inputStr = mInputEdit.getText().toString();
+				int ni = inputStr.length();
 				if (ni > 0) {
-					Log.d(TAG, "IN " + ni + ": "+intputStr);
-					intputStr += "\n"; //flush stdin
-					in.write(intputStr.getBytes());
+					Log.d(TAG, "IN " + ni + ": '"+inputStr + "'ENDIN");
+					lastInputStr = inputStr;
+
+					inputStr += "\n"; //flush stdin
+					in.write(inputStr.getBytes());
 					in.flush();
-					lastInputStr = intputStr;
+
+					outputToUI(inputStr, true);
+
 				}
 			}
 
