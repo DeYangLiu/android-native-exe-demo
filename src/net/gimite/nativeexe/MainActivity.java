@@ -55,6 +55,9 @@ public class MainActivity extends Activity {
 
 		mLocalPath = this.getApplication().getFilesDir().getPath();
 		Log.d(TAG, "created on " + mLocalPath);
+
+		//when the apk is paused --> killed --> create, mInputEdit is the not initial value
+		mInputEdit.invalidate();
 	}
 
 	@Override
