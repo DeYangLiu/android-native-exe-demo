@@ -17,12 +17,12 @@
 			android:layout_weight="1"
 			android:textColor="#f9f6f6"
 			android:background="#544d4d"
-			android:text="/sdcard/scheme -b /sdcard/petite.boot -b /sdcard/scheme.boot"/>
+			android:text="@string/cmd"/>
 
 		<Button android:id="@+id/runButton"
 			android:layout_width="wrap_content"
 			android:layout_height="match_parent"
-			android:text="run"/>
+			android:text="@string/run"/>
 	</LinearLayout>
 
 
@@ -30,7 +30,6 @@
 
 		android:layout_width="fill_parent"
 		android:layout_height="fill_parent"
-		android:text=""
 
 		android:textColor="#f9f6f6"
 		android:background="#544d4d"

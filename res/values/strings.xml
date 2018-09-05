@@ -2,4 +2,6 @@
 <resources>
     <string name="hello">Hello World, MainActivity</string>
     <string name="app_name">Run Native Exe</string>
+	<string name="cmd">/sdcard/scheme -b /sdcard/petite.boot -b /sdcard/scheme.boot </string>
+	<string name="run">run</string>
 </resources>
